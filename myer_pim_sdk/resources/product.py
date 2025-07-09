@@ -1,11 +1,13 @@
 # resources/product.py
 
-from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
+from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING, Callable
 import json
 
 from .base import AkeneoResource
 from ..models.product import ProductRead, ProductWrite, ProductCreateWrite
 from ..utils import validate_identifier
+from ..search import SearchBuilder, FilterBuilder
+from ..search.filters import ProductPropertyFilter, AttributeFilter
 
 if TYPE_CHECKING:
     from ..client import AkeneoClient, AkeneoAsyncClient
@@ -209,6 +211,230 @@ class Product(AkeneoResource):
         items = self._extract_items(response)
         return [self._create_instance(item) for item in items]
     
+    def search_with_builder(self, builder: Union[SearchBuilder, Callable[[FilterBuilder], None]],
+                           use_uuid: bool = True, paginated: bool = False) -> Union[List["Product"], "PaginatedResponse[Product]"]:
+        """
+        Search for products using SearchBuilder or FilterBuilder.
+        
+        Args:
+            builder: SearchBuilder instance or function that configures a FilterBuilder
+            use_uuid: Whether to use UUID endpoint (default: True)
+            paginated: Whether to return paginated response
+            
+        Returns:
+            List of products or PaginatedResponse
+            
+        Examples:
+            # Using SearchBuilder
+            builder = SearchBuilder().filters(lambda f: f.enabled(True).family(["clothing"]))
+            products = client.products.search_with_builder(builder)
+            
+            # Using function
+            products = client.products.search_with_builder(
+                lambda f: f.enabled(True).categories(["winter_collection"])
+            )
+        """
+        if not hasattr(self._client, '_make_request_sync'):
+            raise TypeError("This method requires a synchronous client")
+        
+        # Handle different builder types
+        if callable(builder):
+            # It's a function, create SearchBuilder and apply function
+            search_builder = SearchBuilder()
+            search_builder.filters(builder)
+        else:
+            # It's already a SearchBuilder
+            search_builder = builder
+        
+        # Get search parameters
+        search_params = search_builder.build_search_params()
+        
+        # Choose endpoint based on use_uuid
+        if use_uuid:
+            url = "/api/rest/v1/products-uuid"
+        else:
+            url = "/api/rest/v1/products"
+        
+        prepared_params = self._prepare_request_params(search_params)
+        response = self._client._make_request_sync("GET", url, params=prepared_params)
+        
+        items = self._extract_items(response)
+        instances = [self._create_instance(item) for item in items]
+        
+        if paginated:
+            pagination_data = self._extract_pagination_data(response)
+            links = response.get('_links', {}) if isinstance(response, dict) else {}
+            from .base import PaginatedResponse
+            return PaginatedResponse(
+                items=instances,
+                current_page=pagination_data.get('current_page', 1),
+                has_next=pagination_data.get('has_next', False),
+                has_previous=pagination_data.get('has_previous', False),
+                has_first=pagination_data.get('has_first', False),
+                has_last=pagination_data.get('has_last', False),
+                links=links
+            )
+        
+        return instances
+    
+    def find_by_uuid(self, uuids: List[str]) -> List["Product"]:
+        """
+        Find products by a list of UUIDs.
+        
+        Args:
+            uuids: List of product UUIDs
+            
+        Returns:
+            List of matching products
+        """
+        return self.search_with_builder(
+            lambda f: f.uuid(uuids)
+        )
+    
+    def find_enabled(self, **filters) -> List["Product"]:
+        """
+        Find enabled products with optional additional filters.
+        
+        Args:
+            **filters: Additional search parameters
+            
+        Returns:
+            List of enabled products
+        """
+        builder = SearchBuilder().raw_filter("enabled", "=", True)
+        
+        # Add any additional filters
+        for key, value in filters.items():
+            if key == "categories":
+                builder.raw_filter("categories", "IN", value)
+            elif key == "family":
+                builder.raw_filter("family", "IN", value if isinstance(value, list) else [value])
+            elif key == "updated_since_days":
+                builder.raw_filter("updated", "SINCE LAST N DAYS", value)
+        
+        return self.search_with_builder(builder)
+    
+    def find_in_categories(self, category_codes: List[str], include_children: bool = False) -> List["Product"]:
+        """
+        Find products in specific categories.
+        
+        Args:
+            category_codes: List of category codes
+            include_children: Whether to include child categories
+            
+        Returns:
+            List of products in the categories
+        """
+        operator = "IN CHILDREN" if include_children else "IN"
+        return self.search_with_builder(
+            lambda f: f.categories(category_codes, operator)
+        )
+    
+    def find_by_family(self, family_codes: List[str]) -> List["Product"]:
+        """
+        Find products by family codes.
+        
+        Args:
+            family_codes: List of family codes
+            
+        Returns:
+            List of products in the families
+        """
+        return self.search_with_builder(
+            lambda f: f.family(family_codes)
+        )
+    
+    def find_incomplete(self, scope: str, threshold: int = 100, 
+                       locales: Optional[List[str]] = None) -> List["Product"]:
+        """
+        Find incomplete products.
+        
+        Args:
+            scope: Channel scope
+            threshold: Completeness threshold (default: 100)
+            locales: Specific locales to check
+            
+        Returns:
+            List of incomplete products
+        """
+        return self.search_with_builder(
+            lambda f: f.completeness(threshold - 1, scope, "<", locales)
+        )
+    
+    def find_recently_updated(self, days: int) -> List["Product"]:
+        """
+        Find products updated in the last N days.
+        
+        Args:
+            days: Number of days to look back
+            
+        Returns:
+            List of recently updated products
+        """
+        return self.search_with_builder(
+            lambda f: f.updated(days, "SINCE LAST N DAYS")
+        )
+    
+    def find_by_attribute(self, attribute_code: str, value: Any, operator: str = "=",
+                         locale: Optional[str] = None, scope: Optional[str] = None) -> List["Product"]:
+        """
+        Find products by attribute value.
+        
+        Args:
+            attribute_code: Code of the attribute
+            value: Value to search for
+            operator: Comparison operator
+            locale: Locale (if attribute is localizable)
+            scope: Scope (if attribute is scopable)
+            
+        Returns:
+            List of matching products
+        """
+        return self.search_with_builder(
+            lambda f: f.attribute_text(attribute_code, value, operator, locale, scope)
+        )
+    
+    def find_with_quality_score(self, scores: List[str], scope: str, locale: str) -> List["Product"]:
+        """
+        Find products with specific quality scores.
+        
+        Args:
+            scores: List of quality scores ("A", "B", "C", "D", "E")
+            scope: Channel scope
+            locale: Locale
+            
+        Returns:
+            List of products with the specified quality scores
+        """
+        return self.search_with_builder(
+            lambda f: f.quality_score(scores, scope, locale)
+        )
+    
+    def find_variants_of(self, parent_code: str) -> List["Product"]:
+        """
+        Find all variant products of a parent product model.
+        
+        Args:
+            parent_code: Code of the parent product model
+            
+        Returns:
+            List of variant products
+        """
+        return self.search_with_builder(
+            lambda f: f.parent(parent_code, "=")
+        )
+    
+    def find_simple_products(self) -> List["Product"]:
+        """
+        Find all simple products (products without a parent).
+        
+        Returns:
+            List of simple products
+        """
+        return self.search_with_builder(
+            lambda f: f.parent("", "EMPTY")
+        )
+    
     # Asynchronous methods
     
     async def get_by_uuid_async(self, uuid: str) -> "Product":
@@ -391,3 +617,118 @@ class Product(AkeneoResource):
         
         items = self._extract_items(response)
         return [self._create_instance(item) for item in items]
+    
+    async def search_with_builder_async(self, builder: Union[SearchBuilder, Callable[[FilterBuilder], None]],
+                                       use_uuid: bool = True, paginated: bool = False) -> Union[List["Product"], "PaginatedResponse[Product]"]:
+        """
+        Search for products using SearchBuilder or FilterBuilder asynchronously.
+        
+        Args:
+            builder: SearchBuilder instance or function that configures a FilterBuilder
+            use_uuid: Whether to use UUID endpoint (default: True)
+            paginated: Whether to return paginated response
+            
+        Returns:
+            List of products or PaginatedResponse
+        """
+        if not hasattr(self._client, '_make_request_async'):
+            raise TypeError("This method requires an asynchronous client")
+        
+        # Handle different builder types
+        if callable(builder):
+            # It's a function, create SearchBuilder and apply function
+            search_builder = SearchBuilder()
+            search_builder.filters(builder)
+        else:
+            # It's already a SearchBuilder
+            search_builder = builder
+        
+        # Get search parameters
+        search_params = search_builder.build_search_params()
+        
+        # Choose endpoint based on use_uuid
+        if use_uuid:
+            url = "/api/rest/v1/products-uuid"
+        else:
+            url = "/api/rest/v1/products"
+        
+        prepared_params = self._prepare_request_params(search_params)
+        response = await self._client._make_request_async("GET", url, params=prepared_params)
+        
+        items = self._extract_items(response)
+        instances = [self._create_instance(item) for item in items]
+        
+        if paginated:
+            pagination_data = self._extract_pagination_data(response)
+            links = response.get('_links', {}) if isinstance(response, dict) else {}
+            from .base import PaginatedResponse
+            return PaginatedResponse(
+                items=instances,
+                current_page=pagination_data.get('current_page', 1),
+                has_next=pagination_data.get('has_next', False),
+                has_previous=pagination_data.get('has_previous', False),
+                has_first=pagination_data.get('has_first', False),
+                has_last=pagination_data.get('has_last', False),
+                links=links
+            )
+        
+        return instances
+    
+    # Async versions of convenience methods
+    
+    async def find_by_uuid_async(self, uuids: List[str]) -> List["Product"]:
+        """Find products by UUIDs asynchronously."""
+        return await self.search_with_builder_async(lambda f: f.uuid(uuids))
+    
+    async def find_enabled_async(self, **filters) -> List["Product"]:
+        """Find enabled products asynchronously."""
+        builder = SearchBuilder().raw_filter("enabled", "=", True)
+        
+        for key, value in filters.items():
+            if key == "categories":
+                builder.raw_filter("categories", "IN", value)
+            elif key == "family":
+                builder.raw_filter("family", "IN", value if isinstance(value, list) else [value])
+            elif key == "updated_since_days":
+                builder.raw_filter("updated", "SINCE LAST N DAYS", value)
+        
+        return await self.search_with_builder_async(builder)
+    
+    async def find_in_categories_async(self, category_codes: List[str], include_children: bool = False) -> List["Product"]:
+        """Find products in categories asynchronously."""
+        operator = "IN CHILDREN" if include_children else "IN"
+        return await self.search_with_builder_async(lambda f: f.categories(category_codes, operator))
+    
+    async def find_by_family_async(self, family_codes: List[str]) -> List["Product"]:
+        """Find products by family asynchronously."""
+        return await self.search_with_builder_async(lambda f: f.family(family_codes))
+    
+    async def find_incomplete_async(self, scope: str, threshold: int = 100, 
+                                   locales: Optional[List[str]] = None) -> List["Product"]:
+        """Find incomplete products asynchronously."""
+        return await self.search_with_builder_async(
+            lambda f: f.completeness(threshold - 1, scope, "<", locales)
+        )
+    
+    async def find_recently_updated_async(self, days: int) -> List["Product"]:
+        """Find recently updated products asynchronously."""
+        return await self.search_with_builder_async(lambda f: f.updated(days, "SINCE LAST N DAYS"))
+    
+    async def find_by_attribute_async(self, attribute_code: str, value: Any, operator: str = "=",
+                                     locale: Optional[str] = None, scope: Optional[str] = None) -> List["Product"]:
+        """Find products by attribute asynchronously."""
+        return await self.search_with_builder_async(
+            lambda f: f.attribute_text(attribute_code, value, operator, locale, scope)
+        )
+    
+    async def find_with_quality_score_async(self, scores: List[str], scope: str, locale: str) -> List["Product"]:
+        """Find products with quality scores asynchronously."""
+        return await self.search_with_builder_async(lambda f: f.quality_score(scores, scope, locale))
+    
+    async def find_variants_of_async(self, parent_code: str) -> List["Product"]:
+        """Find variant products asynchronously."""
+        return await self.search_with_builder_async(lambda f: f.parent(parent_code, "="))
+    
+    async def find_simple_products_async(self) -> List["Product"]:
+        """Find simple products asynchronously."""
+        return await self.search_with_builder_async(lambda f: f.parent("", "EMPTY"))

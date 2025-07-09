@@ -9,6 +9,25 @@ from .exceptions import (
     RateLimitError,
     ServerError
 )
+from .search import (
+    SearchBuilder,
+    FilterBuilder,
+    ProductPropertyFilter,
+    ProductModelPropertyFilter,
+    AttributeFilter
+)
+from .search.operators import (
+    ComparisonOperator,
+    ListOperator,
+    DateOperator,
+    TextOperator,
+    CategoryOperator,
+    CompletenessOperator,
+    BooleanOperator,
+    ParentOperator,
+    QualityScoreOperator,
+    EmptyOperator
+)
 
 __version__ = "1.0.0"
 __all__ = [
@@ -19,5 +38,20 @@ __all__ = [
     "ValidationError",
     "NotFoundError",
     "RateLimitError",
-    "ServerError"
+    "ServerError",
+    "SearchBuilder",
+    "FilterBuilder",
+    "ComparisonOperator",
+    "ListOperator",
+    "DateOperator",
+    "TextOperator",
+    "CategoryOperator",
+    "CompletenessOperator",
+    "BooleanOperator",
+    "ParentOperator",
+    "QualityScoreOperator",
+    "EmptyOperator",
+    "ProductPropertyFilter",
+    "ProductModelPropertyFilter",
+    "AttributeFilter"
 ]

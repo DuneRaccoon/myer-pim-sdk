@@ -75,6 +75,255 @@ async def main():
 asyncio.run(main())
 ```
 
+## Comprehensive Search & Filtering
+
+The SDK provides powerful search and filtering capabilities that support all Akeneo API filter types with a fluent, pythonic interface.
+
+### Quick Search Examples
+
+```python
+# Find enabled products
+products = client.products.find_enabled()
+
+# Find products in specific categories
+winter_products = client.products.find_in_categories(["winter_collection"])
+
+# Find incomplete products
+incomplete = client.products.find_incomplete("ecommerce", threshold=80)
+
+# Find recently updated products
+recent = client.products.find_recently_updated(7)  # Last 7 days
+
+# Find products by family
+clothing = client.products.find_by_family(["clothing"])
+```
+
+### Advanced Search with SearchBuilder
+
+```python
+from myer_pim_sdk import SearchBuilder
+
+# Complex search with multiple filters
+products = client.products.search_with_builder(
+    lambda f: f.enabled(True)
+              .categories(["winter_collection"], "IN")
+              .family(["clothing"])
+              .completeness(80, "ecommerce", ">")
+              .updated(30, "SINCE LAST N DAYS")
+)
+
+# Using SearchBuilder directly for more control
+builder = (SearchBuilder()
+           .filters(lambda f: f.enabled(True).family(["shoes"]))
+           .search_locale("en_US")
+           .search_scope("ecommerce")
+           .pagination(page=1, limit=50))
+
+products = client.products.search_with_builder(builder, paginated=True)
+print(f"Found {len(products.items)} shoes on page {products.current_page}")
+```
+
+### Product Property Filters
+
+Supports all Akeneo product property filters:
+
+```python
+# UUID-based filtering
+products = client.products.find_by_uuid(["uuid1", "uuid2"])
+
+# Category filters with operators
+products = client.products.search_with_builder(
+    lambda f: f.categories(["winter"], "IN")
+              .categories(["clearance"], "NOT IN")
+)
+
+# Completeness filters
+products = client.products.search_with_builder(
+    lambda f: f.completeness(100, "ecommerce", "GREATER OR EQUALS THAN ON ALL LOCALES",
+                            ["en_US", "fr_FR"])
+)
+
+# Date-based filters
+products = client.products.search_with_builder(
+    lambda f: f.created(["2024-01-01 00:00:00", "2024-12-31 23:59:59"], "BETWEEN")
+              .updated(7, "SINCE LAST N DAYS")
+)
+
+# Parent/variant relationships
+variants = client.products.find_variants_of("product_model_code")
+simple_products = client.products.find_simple_products()
+
+# Quality score filtering
+low_quality = client.products.find_with_quality_score(["C", "D", "E"], "ecommerce", "en_US")
+```
+
+### Attribute-Based Filtering
+
+Filter by any product attribute with type-specific operators:
+
+```python
+# Text attributes
+products = client.products.search_with_builder(
+    lambda f: f.attribute_text("description", "premium", "CONTAINS", "en_US", "ecommerce")
+              .attribute_text("brand", "Nike", "=")
+)
+
+# Select attributes (simple/multi-select)
+products = client.products.search_with_builder(
+    lambda f: f.attribute_select("color", ["red", "blue"], "IN")
+              .attribute_select("size", ["XL"], "NOT IN")
+)
+
+# Numeric attributes
+products = client.products.search_with_builder(
+    lambda f: f.attribute_number("price", 100, ">")
+              .attribute_number("weight", 5.0, "<=")
+)
+
+# Boolean attributes
+products = client.products.search_with_builder(
+    lambda f: f.attribute_boolean("is_featured", True)
+)
+
+# Date attributes
+products = client.products.search_with_builder(
+    lambda f: f.attribute_date("release_date", "2024-01-01", ">")
+)
+
+# Empty/not empty attributes
+products = client.products.search_with_builder(
+    lambda f: f.attribute_empty("description", True, "en_US", "ecommerce")
+)
+```
+
+### Product Model Search
+
+Product models have their own specialized search methods:
+
+```python
+# Find by identifier
+models = client.product_models.find_by_identifier(["model1", "model2"])
+
+# Find root vs sub product models
+root_models = client.product_models.find_root_models()
+sub_models = client.product_models.find_sub_models(["parent1", "parent2"])
+
+# Completeness for product models
+complete_models = client.product_models.find_complete("ecommerce", locale="en_US")
+incomplete_models = client.product_models.find_incomplete("ecommerce")
+
+# Myer-specific: Find models ready for enrichment
+enrichment_ready = client.product_models.find_for_enrichment("image", 10)
+```
+
+### Pagination
+
+Supports Akeneo's pagination format with full control:
+
+```python
+# Basic pagination
+page1 = client.products.search_with_builder(
+    lambda f: f.enabled(True),
+    paginated=True
+)
+print(f"Page {page1.current_page}: {len(page1.items)} items")
+print(f"Has next: {page1.has_next}")
+print(f"Next URL: {page1.next_href}")
+
+# Manual pagination
+builder = SearchBuilder().filters(lambda f: f.family(["clothing"])).limit(20)
+page_num = 1
+
+while True:
+    builder.page(page_num)
+    page = client.products.search_with_builder(builder, paginated=True)
+    
+    # Process page.items
+    
+    if not page.has_next:
+        break
+    page_num += 1
+
+# Iterator-style pagination
+for product in client.products.paginate(family=["shoes"], limit=100):
+    # Process each product
+    pass
+```
+
+### Asynchronous Search
+
+All search methods have async equivalents:
+
+```python
+# Async search
+products = await client.products.find_enabled_async()
+models = await client.product_models.find_by_family_async(["clothing"])
+
+# Async complex search
+products = await client.products.search_with_builder_async(
+    lambda f: f.enabled(True).completeness(90, "ecommerce", ">"),
+    paginated=True
+)
+
+# Parallel async searches
+results = await asyncio.gather(
+    client.products.find_enabled_async(),
+    client.products.find_incomplete_async("ecommerce", 90),
+    client.product_models.find_root_models_async()
+)
+```
+
+### Raw Search (Advanced)
+
+For complete control, use raw search criteria:
+
+```python
+# Raw search criteria
+search_criteria = {
+    "enabled": [{"operator": "=", "value": True}],
+    "family": [{"operator": "IN", "value": ["clothing"]}],
+    "completeness": [{"operator": ">", "value": 80, "scope": "ecommerce"}]
+}
+products = client.products.search(search_criteria)
+
+# Mix raw and builder patterns
+builder = (SearchBuilder()
+           .raw_filter("enabled", "=", True)
+           .raw_filter("categories", "IN", ["winter_collection"])
+           .filters(lambda f: f.attribute_text("brand", "Nike")))
+
+products = client.products.search_with_builder(builder)
+```
+
+### Myer-Specific Search Workflows
+
+```python
+# Find products ready for image enrichment
+image_ready = client.product_models.search_with_builder(
+    lambda f: f.attribute_number("image_status", 10)  # Status 10 = ready
+)
+
+# Find products with copy enrichment complete
+copy_complete = client.product_models.search_with_builder(
+    lambda f: f.attribute_number("copy_status", 20)  # Status 20 = complete
+)
+
+# Complex enrichment workflow
+enrichment_candidates = client.product_models.search_with_builder(
+    lambda f: f.attribute_number("image_status", 10)
+              .attribute_empty("description", True, "en_US", "ecommerce")
+              .family(["clothing", "shoes"])
+              .categories(["new_arrivals"], "IN")
+)
+
+# Find supplier products needing attention
+supplier_products = client.products.search_with_builder(
+    lambda f: f.categories(["supplier_category_1"], "IN")
+              .completeness(90, "ecommerce", "<")
+              .enabled(True)
+)
+```
+
 ## Key Concepts for Myer's System
 
 ### Product Hierarchy

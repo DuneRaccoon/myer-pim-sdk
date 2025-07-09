@@ -1,11 +1,12 @@
 # resources/category.py
 
-from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
+from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING, Callable
 import json
 
 from .base import AkeneoResource
 from ..models.category import CategoryRead, CategoryWrite, CategoryCreateWrite
 from ..utils import validate_identifier
+from ..search import SearchBuilder, FilterBuilder
 
 if TYPE_CHECKING:
     from ..client import AkeneoClient, AkeneoAsyncClient
@@ -35,6 +36,109 @@ class Category(AkeneoResource):
         """Delete a category by code."""
         code = validate_identifier(code, "code")
         self.delete(code)
+    
+    def search_with_builder(self, builder: Union[SearchBuilder, Callable[[FilterBuilder], None]],
+                           paginated: bool = False) -> Union[List["Category"], "PaginatedResponse[Category]"]:
+        """
+        Search for categories using SearchBuilder or FilterBuilder.
+        
+        Args:
+            builder: SearchBuilder instance or function that configures a FilterBuilder
+            paginated: Whether to return paginated response
+            
+        Returns:
+            List of categories or PaginatedResponse
+        """
+        if not hasattr(self._client, '_make_request_sync'):
+            raise TypeError("This method requires a synchronous client")
+        
+        # Handle different builder types
+        if callable(builder):
+            # It's a function, create SearchBuilder and apply function
+            search_builder = SearchBuilder()
+            search_builder.filters(builder)
+        else:
+            # It's already a SearchBuilder
+            search_builder = builder
+        
+        # Get search parameters
+        search_params = search_builder.build_search_params()
+        
+        url = "/api/rest/v1/categories"
+        prepared_params = self._prepare_request_params(search_params)
+        response = self._client._make_request_sync("GET", url, params=prepared_params)
+        
+        items = self._extract_items(response)
+        instances = [self._create_instance(item) for item in items]
+        
+        if paginated:
+            pagination_data = self._extract_pagination_data(response)
+            links = response.get('_links', {}) if isinstance(response, dict) else {}
+            from .base import PaginatedResponse
+            return PaginatedResponse(
+                items=instances,
+                current_page=pagination_data.get('current_page', 1),
+                has_next=pagination_data.get('has_next', False),
+                has_previous=pagination_data.get('has_previous', False),
+                has_first=pagination_data.get('has_first', False),
+                has_last=pagination_data.get('has_last', False),
+                links=links
+            )
+        
+        return instances
+    
+    def find_by_code(self, codes: List[str]) -> List["Category"]:
+        """
+        Find categories by their codes.
+        
+        Args:
+            codes: List of category codes
+            
+        Returns:
+            List of matching categories
+        """
+        return self.search_with_builder(
+            lambda f: f.raw_filter("code", "IN", codes)
+        )
+    
+    def find_root_categories(self) -> List["Category"]:
+        """
+        Find all root categories (categories without a parent).
+        
+        Returns:
+            List of root categories
+        """
+        return self.search_with_builder(
+            lambda f: f.raw_filter("parent", "EMPTY")
+        )
+    
+    def find_child_categories(self, parent_code: str) -> List["Category"]:
+        """
+        Find child categories of a specific parent.
+        
+        Args:
+            parent_code: Code of the parent category
+            
+        Returns:
+            List of child categories
+        """
+        return self.search_with_builder(
+            lambda f: f.raw_filter("parent", "=", parent_code)
+        )
+    
+    def find_recently_updated(self, days: int) -> List["Category"]:
+        """
+        Find categories updated in the last N days.
+        
+        Args:
+            days: Number of days to look back
+            
+        Returns:
+            List of recently updated categories
+        """
+        return self.search_with_builder(
+            lambda f: f.raw_filter("updated", "SINCE LAST N DAYS", days)
+        )
     
     def bulk_update(self, categories: List[Union[Dict[str, Any], CategoryWrite]]) -> List[Dict[str, Any]]:
         """Update multiple categories at once."""
