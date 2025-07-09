@@ -1,6 +1,6 @@
 [project]
 name = "myer-pim-sdk"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python library for simplifying the interaction with Myer's PIM API (Akeneo's Product management API)"
 authors = [
     {name = "DuneRaccoon",email = "benjamincsherro@hotmail.com"}
