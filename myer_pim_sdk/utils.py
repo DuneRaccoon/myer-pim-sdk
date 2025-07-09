@@ -94,27 +94,29 @@ def get_pagination_info(response: Dict[str, Any]) -> Dict[str, Any]:
     """Extract pagination information from Akeneo API response."""
     pagination_info = {
         'current_page': 1,
-        'total_pages': 1,
-        'total_items': 0,
-        'items_per_page': 10,
         'has_next': False,
-        'has_previous': False
+        'has_previous': False,
+        'has_first': False,
+        'has_last': False,
+        'items_count': 0
     }
     
     if isinstance(response, dict):
-        # Extract current page
+        # Extract current page from Akeneo response
         if 'current_page' in response:
             pagination_info['current_page'] = response['current_page']
         
-        # Extract links to determine pagination
+        # Extract links to determine pagination - following Akeneo format
         links = response.get('_links', {})
         pagination_info['has_next'] = 'next' in links
         pagination_info['has_previous'] = 'previous' in links
+        pagination_info['has_first'] = 'first' in links
+        pagination_info['has_last'] = 'last' in links
         
-        # Try to extract total count if available
+        # Count items in current page
         if '_embedded' in response and 'items' in response['_embedded']:
             items = response['_embedded']['items']
-            pagination_info['items_per_page'] = len(items)
+            pagination_info['items_count'] = len(items)
     
     return pagination_info
 

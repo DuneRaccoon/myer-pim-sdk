@@ -27,26 +27,32 @@ class PaginatedResponse(Generic[T]):
     """
     Generic container for paginated API responses from Akeneo.
     
+    Matches Akeneo's pagination format with _links, current_page, and _embedded.items structure.
+    
     Provides access to:
     - items: The list of resource instances
     - current_page: The current page number
     - has_next: Whether there's a next page
     - has_previous: Whether there's a previous page
-    - total_items: Total number of items (if available)
+    - has_first: Whether there's a first page link
+    - has_last: Whether there's a last page link
+    - links: The _links object from Akeneo response
     """
     
     def __init__(self, 
                 items: List[T], 
-                current_page: int,
+                current_page: int = 1,
                 has_next: bool = False,
                 has_previous: bool = False,
-                total_items: Optional[int] = None,
-                links: Optional[Dict[str, str]] = None):
+                has_first: bool = False,
+                has_last: bool = False,
+                links: Optional[Dict[str, Any]] = None):
         self.items = items
         self.current_page = current_page
         self.has_next = has_next
         self.has_previous = has_previous
-        self.total_items = total_items
+        self.has_first = has_first
+        self.has_last = has_last
         self.links = links or {}
         
     def __len__(self) -> int:
@@ -57,6 +63,31 @@ class PaginatedResponse(Generic[T]):
         
     def __getitem__(self, index):
         return self.items[index]
+    
+    @property
+    def next_href(self) -> Optional[str]:
+        """Get the next page URL if available."""
+        return self.links.get('next', {}).get('href') if self.has_next else None
+    
+    @property 
+    def previous_href(self) -> Optional[str]:
+        """Get the previous page URL if available."""
+        return self.links.get('previous', {}).get('href') if self.has_previous else None
+        
+    @property
+    def first_href(self) -> Optional[str]:
+        """Get the first page URL if available."""
+        return self.links.get('first', {}).get('href') if self.has_first else None
+        
+    @property
+    def last_href(self) -> Optional[str]:
+        """Get the last page URL if available."""
+        return self.links.get('last', {}).get('href') if self.has_last else None
+        
+    @property
+    def self_href(self) -> Optional[str]:
+        """Get the current page URL."""
+        return self.links.get('self', {}).get('href')
 
 
 class AkeneoResource:
@@ -224,7 +255,8 @@ class AkeneoResource:
                 current_page=pagination_data.get('current_page', 1),
                 has_next=pagination_data.get('has_next', False),
                 has_previous=pagination_data.get('has_previous', False),
-                total_items=pagination_data.get('total_items'),
+                has_first=pagination_data.get('has_first', False),
+                has_last=pagination_data.get('has_last', False),
                 links=links
             )
         
@@ -347,7 +379,8 @@ class AkeneoResource:
                 current_page=pagination_data.get('current_page', 1),
                 has_next=pagination_data.get('has_next', False),
                 has_previous=pagination_data.get('has_previous', False),
-                total_items=pagination_data.get('total_items'),
+                has_first=pagination_data.get('has_first', False),
+                has_last=pagination_data.get('has_last', False),
                 links=links
             )
         

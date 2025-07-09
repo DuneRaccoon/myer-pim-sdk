@@ -67,7 +67,8 @@ class Product(AkeneoResource):
                 current_page=pagination_data.get('current_page', 1),
                 has_next=pagination_data.get('has_next', False),
                 has_previous=pagination_data.get('has_previous', False),
-                total_items=pagination_data.get('total_items'),
+                has_first=pagination_data.get('has_first', False),
+                has_last=pagination_data.get('has_last', False),
                 links=links
             )
         
@@ -253,7 +254,8 @@ class Product(AkeneoResource):
                 current_page=pagination_data.get('current_page', 1),
                 has_next=pagination_data.get('has_next', False),
                 has_previous=pagination_data.get('has_previous', False),
-                total_items=pagination_data.get('total_items'),
+                has_first=pagination_data.get('has_first', False),
+                has_last=pagination_data.get('has_last', False),
                 links=links
             )
         

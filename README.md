@@ -246,15 +246,59 @@ client.categories.create_media_file(
 
 ### Pagination
 
+The SDK now fully supports Akeneo's pagination format with `_links`, `current_page`, and `_embedded.items`:
+
 ```python
-# Manual pagination
+# Manual pagination with full Akeneo support
 page1 = client.products.list_by_uuid(page=1, limit=100, paginated=True)
+print(f"Current page: {page1.current_page}")
+print(f"Has next: {page1.has_next}")
+print(f"Next URL: {page1.next_href}")
+print(f"Items on page: {len(page1.items)}")
+
 if page1.has_next:
     page2 = client.products.list_by_uuid(page=2, limit=100, paginated=True)
+
+# Access pagination URLs directly
+print(f"First page: {page1.first_href}")
+print(f"Previous page: {page1.previous_href}")
+print(f"Self page: {page1.self_href}")
+print(f"Last page: {page1.last_href}")
 
 # Auto-pagination generator
 for product in client.products.paginate(limit=100):
     print(f"Processing product: {product.identifier}")
+```
+
+#### Pagination Response Structure
+
+The `PaginatedResponse` object matches Akeneo's API format exactly:
+
+```python
+# Properties available on PaginatedResponse
+response = client.families.list(paginated=True, limit=10)
+
+# Basic pagination info
+response.current_page      # Current page number
+response.has_next         # True if next page exists
+response.has_previous     # True if previous page exists  
+response.has_first        # True if first page link exists
+response.has_last         # True if last page link exists
+response.items            # List of resource instances
+
+# Direct URL access (matching Akeneo's _links structure)
+response.next_href        # URL for next page
+response.previous_href    # URL for previous page
+response.first_href       # URL for first page
+response.last_href        # URL for last page
+response.self_href        # URL for current page
+response.links            # Full _links object from Akeneo
+
+# Standard list operations
+len(response)             # Number of items on current page
+response[0]               # First item
+for item in response:     # Iterate over items
+    process(item)
 ```
 
 ### Bulk Operations
