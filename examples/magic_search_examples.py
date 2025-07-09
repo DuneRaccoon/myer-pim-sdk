@@ -40,12 +40,12 @@ def basic_magic_search_examples():
     
     # 2. Myer-specific convenience methods
     print("\\n2. Myer-specific convenience methods...")
-    oxford_products = client.product_models.search_with_builder(
-        lambda f: f.brand("Oxford")
+    country_road_products = client.product_models.search_with_builder(
+        lambda f: f.brand("Country Road")
                   .online_category("women_accessories")
                   .online_ind(True)
     )
-    print(f"Found {len(oxford_products)} Oxford products in women's accessories that are online")
+    print(f"Found {len(country_road_products)} Country Road products in women's accessories that are online")
     
     # 3. Enrichment status searches
     print("\\n3. Enrichment status searches...")
@@ -82,12 +82,12 @@ def value_filtering_examples():
     # 1. Filter to only return specific attributes
     print("\\n1. Only return specific attributes...")
     builder = (SearchBuilder()
-               .filters(lambda f: f.brand("Oxford"))
+               .filters(lambda f: f.brand("Country Road"))
                .attributes(["supplier_style", "online_name", "brand", "copy_status"])
                .limit(5))
     
     products = client.product_models.search_with_builder(builder)
-    print(f"Found {len(products)} Oxford products with only specific attributes returned")
+    print(f"Found {len(products)} Country Road products with only specific attributes returned")
     if products:
         print(f"First product attributes: {list(products[0].values.keys())}")
     
@@ -134,8 +134,8 @@ def quick_search_functions_examples():
     
     # 2. Search by brand
     print("\\n2. Search by brand...")
-    products = client.product_models.search_with_builder(by_brand("Oxford"))
-    print(f"Found {len(products)} Oxford products")
+    products = client.product_models.search_with_builder(by_brand("Cue"))
+    print(f"Found {len(products)} Cue products")
     
     # 3. Find products ready for enrichment
     print("\\n3. Find products ready for enrichment...")
@@ -197,10 +197,10 @@ def complex_enrichment_workflows():
     )
     print(f"Found {len(products)} products needing both copy and image enrichment")
     
-    # 2. Oxford products in women's accessories needing images
-    print("\\n2. Oxford women's accessories needing images...")
+    # 2. Witchery products in women's accessories needing images
+    print("\\n2. Witchery women's accessories needing images...")
     products = client.product_models.search_with_builder(
-        lambda f: f.brand("Oxford")
+        lambda f: f.brand("Witchery")
                   .online_department("women")
                   .online_category("women_accessories")
                   .copy_status("20")  # Copy complete
@@ -208,7 +208,7 @@ def complex_enrichment_workflows():
                   .has_description()  # Has description
                   .missing_images(1)  # Missing images
     )
-    print(f"Found {len(products)} Oxford women's accessories needing images")
+    print(f"Found {len(products)} Witchery women's accessories needing images")
     
     # 3. High-priority enrichment queue
     print("\\n3. High-priority enrichment queue...")

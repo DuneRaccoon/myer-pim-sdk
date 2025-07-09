@@ -389,7 +389,7 @@ Filter response values to only return specific attributes, locales, or scopes:
 # Only return specific attributes to reduce response size
 products = client.product_models.search_with_builder(
     SearchBuilder()
-    .filters(lambda f: f.brand("Oxford"))
+    .filters(lambda f: f.brand("Trenery"))
     .attributes(["supplier_style", "online_name", "brand", "copy_status"])
     .locales(["en_AU"])  # Only Australian English
     .scope("ecommerce")  # Only ecommerce scope
@@ -415,9 +415,9 @@ enrichment_candidates = client.product_models.search_with_builder(
               .has_description()  # Has description
 )
 
-# Oxford women's accessories needing attention
-oxford_womens = client.product_models.search_with_builder(
-    lambda f: f.brand("Oxford")
+# Witchery women's accessories needing attention
+witchery_womens = client.product_models.search_with_builder(
+    lambda f: f.brand("Witchery")
               .online_department("women")
               .online_category("women_accessories")
               .copy_status("10")  # Ready for copy
