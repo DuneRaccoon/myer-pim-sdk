@@ -135,7 +135,7 @@ def validate_identifier(identifier: str, identifier_type: str = "identifier") ->
     return identifier
 
 
-def chunk_list(items: List[Any], chunk_size: int) -> Generator[List[Any]]:
+def chunk_list(items: List[Any], chunk_size: int) -> Generator[List[Any], None, None]:
     """Split a list into chunks of specified size."""
     for i in range(0, len(items), chunk_size):
         yield items[i:i + chunk_size]
