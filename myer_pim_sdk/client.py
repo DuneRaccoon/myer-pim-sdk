@@ -39,6 +39,8 @@ class BaseAkeneoClient:
         *,
         client_id: str,
         client_secret: str,
+        username: str,
+        password: str,
         base_url: str = DEFAULT_BASE_URL,
         timeout: float = 60.0,
         token_buffer_seconds: int = DEFAULT_TOKEN_BUFFER_SECONDS,
@@ -49,6 +51,8 @@ class BaseAkeneoClient:
 
         self.client_id = client_id
         self.client_secret = client_secret
+        self.username = username
+        self.password = password
         self.base_url = base_url.rstrip('/')
         
         self.token_url = f"{self.base_url}/api/oauth/v1/token"
@@ -110,12 +114,18 @@ class AkeneoClient(BaseAkeneoClient):
     def __init__(self, *args, **kwargs):
         self._client = None  # Initialize to avoid type checking errors before super().__init__
         super().__init__(*args, **kwargs)
-        self._client = httpx.Client(timeout=self.timeout)
+        self._client = httpx.Client(base_url=self.base_url, timeout=self.timeout)
 
     def _fetch_new_token_sync(self) -> None:
         """Fetch a new OAuth2 access token."""
         headers = {"Authorization": self._get_basic_auth_header()}
-        data = {"grant_type": "client_credentials"}
+        
+        # Really struggling to understand why tf these guys have set up auth like this.....
+        data = {
+            "grant_type": "password",
+            "username": self.username,
+            "password": self.password,
+        }
         
         logger.info(f"Fetching new OAuth2 token from {self.token_url}")
         try:
@@ -249,12 +259,18 @@ class AkeneoAsyncClient(BaseAkeneoClient):
     def __init__(self, *args, **kwargs):
         self._client = None  # Initialize to avoid type checking errors before super().__init__
         super().__init__(*args, **kwargs)
-        self._client = httpx.AsyncClient(timeout=self.timeout)
+        self._client = httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout)
 
     async def _fetch_new_token_async(self) -> None:
         """Fetch a new OAuth2 access token asynchronously."""
         headers = {"Authorization": self._get_basic_auth_header()}
-        data = {"grant_type": "client_credentials"}
+        
+        # Really struggling to understand why tf these guys have set up auth like this.....
+        data = {
+            "grant_type": "password",
+            "username": self.username,
+            "password": self.password,
+        }
 
         logger.info(f"Fetching new OAuth2 token asynchronously from {self.token_url}")
         try:

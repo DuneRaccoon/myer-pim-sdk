@@ -24,6 +24,16 @@ class ProductModel(AkeneoResource):
     
     # Synchronous methods
     
+    def search(self, **filter) -> List["ProductModel"]:
+        """Search for product models."""
+        if not hasattr(self._client, '_make_request_sync'):
+            raise TypeError("This method requires a synchronous client")
+        
+        url = f"/api/rest/v1/{self.endpoint}"
+        response = self._client._make_request_sync("GET", url)
+        
+        return [self._create_instance(item) for item in response.get('_embedded', {}).get('items', [])]
+    
     def get_by_code(self, code: str) -> "ProductModel":
         """Get a product model by its code."""
         if not hasattr(self._client, '_make_request_sync'):

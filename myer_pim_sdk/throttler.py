@@ -7,12 +7,9 @@ from leakybucket.persistence import InMemoryLeakyBucketStorage
 
 # Myer's API allows max 20 calls per minute = 20/60 = 0.333 calls per second
 # We'll be conservative and use 18 calls per minute to account for timing variations
-MYER_RATE_LIMIT_PER_MINUTE = 18
-MYER_RATE_LIMIT_PER_SECOND = MYER_RATE_LIMIT_PER_MINUTE / 60.0  # ~0.3 calls per second
-
 storage = InMemoryLeakyBucketStorage(
-    max_rate=MYER_RATE_LIMIT_PER_SECOND,
-    time_period=1.0
+    max_rate=18,
+    time_period=60.0
 )
 
 
