@@ -324,6 +324,229 @@ supplier_products = client.products.search_with_builder(
 )
 ```
 
+## Magic Search for Product Values
+
+The SDK includes powerful "magic" search capabilities specifically designed for Myer's complex product attribute structure, making it easy to search by any product value with minimal code.
+
+### Generic Attribute Search
+
+The `by_attribute()` method automatically detects value types and applies appropriate operators:
+
+```python
+# Generic search by any attribute - the "magic" method
+products = client.product_models.search_with_builder(
+    lambda f: f.by_attribute("supplier_style", "FI02847")
+              .by_attribute("copy_status", "20")
+              .by_attribute("concession", True)
+              .by_attribute("days_in_stock", 1000, ">")
+)
+```
+
+### Myer-Specific Convenience Methods
+
+Pre-built methods for common Myer product attributes:
+
+```python
+# Myer-specific convenience methods
+products = client.product_models.search_with_builder(
+    lambda f: f.supplier_style("FI02847")  # Supplier style search
+              .brand(["Oxford", "Nike"])  # Multiple brands
+              .online_name("Belt", "CONTAINS")  # Search in product names
+              .copy_status("20")  # Copy enrichment status
+              .image_status("10")  # Image enrichment status
+              .supplier_trust_level(["gold", "silver"])  # Trust levels
+              .online_category("women_accessories")
+              .concession(True)  # Concession products
+              .online_ind(True)  # Available online
+              .buyable_ind(True)  # Buyable products
+)
+```
+
+### Quick Search Functions
+
+Pre-configured search builders for common patterns:
+
+```python
+from myer_pim_sdk.search import (
+    by_supplier_style, by_brand, ready_for_enrichment,
+    enrichment_complete, missing_images, online_products
+)
+
+# Quick searches
+products = client.product_models.search_with_builder(by_supplier_style("FI02847"))
+models = client.product_models.search_with_builder(by_brand("Oxford"))
+ready = client.product_models.search_with_builder(ready_for_enrichment("image", 10))
+complete = client.product_models.search_with_builder(enrichment_complete("copy", 20))
+missing = client.product_models.search_with_builder(missing_images(1))
+online = client.product_models.search_with_builder(online_products())
+```
+
+### Value Filtering
+
+Filter response values to only return specific attributes, locales, or scopes:
+
+```python
+# Only return specific attributes to reduce response size
+products = client.product_models.search_with_builder(
+    SearchBuilder()
+    .filters(lambda f: f.brand("Oxford"))
+    .attributes(["supplier_style", "online_name", "brand", "copy_status"])
+    .locales(["en_AU"])  # Only Australian English
+    .scope("ecommerce")  # Only ecommerce scope
+    .limit(50)
+)
+
+# Response will only contain the specified attributes/locales/scope
+print(f"Attributes returned: {list(products[0].values.keys())}")
+```
+
+### Complex Myer Workflows
+
+Real-world enrichment and operational scenarios:
+
+```python
+# Find products needing comprehensive enrichment
+enrichment_candidates = client.product_models.search_with_builder(
+    lambda f: f.copy_status("20")  # Copy complete
+              .image_status("10")  # Ready for images
+              .supplier_trust_level(["gold", "silver"])  # Trusted suppliers
+              .online_ind(True)  # Available online
+              .missing_images(1)  # Missing images
+              .has_description()  # Has description
+)
+
+# Oxford women's accessories needing attention
+oxford_womens = client.product_models.search_with_builder(
+    lambda f: f.brand("Oxford")
+              .online_department("women")
+              .online_category("women_accessories")
+              .copy_status("10")  # Ready for copy
+              .missing_description()  # No description yet
+)
+
+# High-priority enrichment queue
+high_priority = client.product_models.search_with_builder(
+    lambda f: f.online_ind(True)
+              .buyable_ind(True)
+              .concession(False)  # Direct Myer products
+              .clearance_ind(False)  # Not clearance
+              .supplier_trust_level(["gold"])  # Gold suppliers only
+              .copy_status("10")
+)
+
+# Audit enrichment discrepancies
+discrepancies = client.product_models.search_with_builder(
+    lambda f: f.copy_status("20")  # Copy supposedly complete
+              .myer_copy_status("10")  # But Myer status disagrees
+              .online_ind(True)
+)
+```
+
+### Supplier Analysis
+
+```python
+# Analyze performance by supplier trust level
+for level in ["gold", "silver", "bronze"]:
+    count = len(client.product_models.search_with_builder(
+        lambda f: f.supplier_trust_level([level])
+                  .copy_status("20")
+                  .image_status("20")
+    ))
+    print(f"{level.title()} suppliers: {count} products fully enriched")
+
+# Find specific supplier's products
+supplier_products = client.product_models.search_with_builder(
+    lambda f: f.supplier("9000395")
+              .copy_status("10")  # Ready for enrichment
+              .online_ind(True)
+)
+```
+
+### Image and Content Management
+
+```python
+# Products missing specific images
+products_no_image1 = client.product_models.search_with_builder(
+    lambda f: f.missing_images(1)  # Missing image 1
+              .online_ind(True)
+              .buyable_ind(True)
+)
+
+# Products with images but missing descriptions
+images_no_copy = client.product_models.search_with_builder(
+    lambda f: f.has_images(1)  # Has at least image 1
+              .missing_description()  # But no description
+              .online_ind(True)
+)
+
+# Ready for final review
+ready_for_review = client.product_models.search_with_builder(
+    lambda f: f.copy_status("20")  # Copy complete
+              .image_status("20")  # Images complete
+              .has_description()  # Has description
+              .has_images(1)  # Has images
+              .online_ind(True)
+)
+```
+
+### Async Magic Search
+
+```python
+# All magic search methods have async equivalents
+products = await client.product_models.search_with_builder_async(
+    lambda f: f.supplier_style("FI02847")
+              .copy_status("20")
+)
+
+# Parallel searches for dashboard
+results = await asyncio.gather(
+    client.product_models.search_with_builder_async(
+        lambda f: f.copy_status("10")  # Copy queue
+    ),
+    client.product_models.search_with_builder_async(
+        lambda f: f.image_status("10")  # Image queue
+    ),
+    client.product_models.search_with_builder_async(
+        lambda f: f.copy_status("20").image_status("20")  # Complete
+    )
+)
+copy_queue, image_queue, complete = results
+```
+
+### Available Magic Methods
+
+**Product Value Searches:**
+- `supplier_style()` - Search by supplier style code
+- `brand()` - Search by brand name
+- `online_name()` - Search in product names
+- `supplier()` - Search by supplier code
+- `supplier_colour()` - Search by supplier color
+- `product_type()` - Search by product type
+- `online_category()` - Search by online category
+- `online_department()` - Search by department
+
+**Status Searches:**
+- `copy_status()` - Copy enrichment status
+- `image_status()` - Image enrichment status
+- `myer_copy_status()` - Myer copy status
+- `myer_image_status()` - Myer image status
+- `supplier_trust_level()` - Supplier trust level
+
+**Boolean Filters:**
+- `concession()` - Concession products
+- `online_ind()` - Online indicator
+- `buyable_ind()` - Buyable indicator
+- `clearance_ind()` - Clearance indicator
+
+**Content Filters:**
+- `has_images()` - Products with specific images
+- `missing_images()` - Products missing images
+- `has_description()` - Products with descriptions
+- `missing_description()` - Products missing descriptions
+
+**Generic:**
+- `by_attribute()` - Search any attribute with auto-type detection
+
 ## Key Concepts for Myer's System
 
 ### Product Hierarchy

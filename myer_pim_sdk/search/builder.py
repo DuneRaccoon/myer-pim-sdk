@@ -161,6 +161,123 @@ class FilterBuilder:
         ))
         return self
     
+    # Generic attribute method - the "magic" method
+    def by_attribute(self, attribute_code: str, value: Any, operator: str = "=",
+                    locale: Optional[str] = None, scope: Optional[str] = None) -> "FilterBuilder":
+        """Generic method to filter by any attribute with automatic type detection."""
+        if isinstance(value, bool):
+            return self.attribute_boolean(attribute_code, value, operator, locale, scope)
+        elif isinstance(value, (int, float)):
+            return self.attribute_number(attribute_code, value, operator, locale, scope)
+        elif isinstance(value, list):
+            return self.attribute_select(attribute_code, value, operator, locale, scope)
+        else:
+            return self.attribute_text(attribute_code, str(value), operator, locale, scope)
+    
+    # Myer-specific convenience methods for common product values
+    def supplier_style(self, value: Union[str, List[str]], operator: str = "=", 
+                      locale: str = "en_AU", scope: str = "ecommerce") -> "FilterBuilder":
+        """Filter by supplier style (common Myer attribute)."""
+        if isinstance(value, list):
+            return self.attribute_select("supplier_style", value, "IN", locale, scope)
+        return self.attribute_text("supplier_style", value, operator, locale, scope)
+    
+    def brand(self, value: Union[str, List[str]], operator: str = "=",
+             locale: str = "en_AU", scope: str = "ecommerce") -> "FilterBuilder":
+        """Filter by brand."""
+        if isinstance(value, list):
+            return self.attribute_select("brand", value, "IN", locale, scope)
+        return self.attribute_text("brand", value, operator, locale, scope)
+    
+    def online_name(self, value: str, operator: str = "CONTAINS",
+                   locale: str = "en_AU", scope: str = "ecommerce") -> "FilterBuilder":
+        """Filter by online name."""
+        return self.attribute_text("online_name", value, operator, locale, scope)
+    
+    def copy_status(self, value: Union[int, str], operator: str = "=") -> "FilterBuilder":
+        """Filter by copy enrichment status."""
+        return self.attribute_text("copy_status", str(value), operator)
+    
+    def image_status(self, value: Union[int, str], operator: str = "=") -> "FilterBuilder":
+        """Filter by image enrichment status."""
+        return self.attribute_text("image_status", str(value), operator)
+    
+    def myer_copy_status(self, value: Union[int, str], operator: str = "=") -> "FilterBuilder":
+        """Filter by Myer copy status."""
+        return self.attribute_text("myer_copy_status", str(value), operator)
+    
+    def myer_image_status(self, value: Union[int, str], operator: str = "=") -> "FilterBuilder":
+        """Filter by Myer image status."""
+        return self.attribute_text("myer_image_status", str(value), operator)
+    
+    def supplier_trust_level(self, value: Union[str, List[str]], operator: str = "IN") -> "FilterBuilder":
+        """Filter by supplier trust level (gold, silver, bronze)."""
+        if isinstance(value, str):
+            value = [value]
+        return self.attribute_select("supplier_trust_level", value, operator)
+    
+    def product_type(self, value: Union[str, List[str]], operator: str = "=") -> "FilterBuilder":
+        """Filter by product type."""
+        if isinstance(value, list):
+            return self.attribute_select("product_type", value, "IN")
+        return self.attribute_text("product_type", value, operator)
+    
+    def supplier_colour(self, value: Union[str, List[str]], operator: str = "=") -> "FilterBuilder":
+        """Filter by supplier colour."""
+        if isinstance(value, list):
+            return self.attribute_select("supplier_colour", value, "IN")
+        return self.attribute_text("supplier_colour", value, operator)
+    
+    def online_category(self, value: Union[str, List[str]], operator: str = "=") -> "FilterBuilder":
+        """Filter by online category."""
+        if isinstance(value, list):
+            return self.attribute_select("online_category", value, "IN")
+        return self.attribute_text("online_category", value, operator)
+    
+    def online_department(self, value: Union[str, List[str]], operator: str = "=") -> "FilterBuilder":
+        """Filter by online department."""
+        if isinstance(value, list):
+            return self.attribute_select("online_department", value, "IN")
+        return self.attribute_text("online_department", value, operator)
+    
+    def supplier(self, value: Union[str, List[str]], operator: str = "=") -> "FilterBuilder":
+        """Filter by supplier code."""
+        if isinstance(value, list):
+            return self.attribute_select("supplier", value, "IN")
+        return self.attribute_text("supplier", value, operator)
+    
+    def concession(self, value: bool = True) -> "FilterBuilder":
+        """Filter by concession status."""
+        return self.attribute_boolean("concession", value)
+    
+    def online_ind(self, value: bool = True) -> "FilterBuilder":
+        """Filter by online indicator."""
+        return self.attribute_boolean("online_ind", value)
+    
+    def buyable_ind(self, value: bool = True) -> "FilterBuilder":
+        """Filter by buyable indicator."""
+        return self.attribute_boolean("buyable_ind", value)
+    
+    def clearance_ind(self, value: bool = False, operator: str = "=") -> "FilterBuilder":
+        """Filter by clearance indicator."""
+        return self.attribute_boolean("clearance_ind", value, operator)
+    
+    def has_images(self, image_num: int = 1) -> "FilterBuilder":
+        """Filter products that have specific image numbers."""
+        return self.attribute_empty(f"new_image{image_num}", False)
+    
+    def missing_images(self, image_num: int = 1) -> "FilterBuilder":
+        """Filter products missing specific image numbers."""
+        return self.attribute_empty(f"new_image{image_num}", True)
+    
+    def has_description(self, locale: str = "en_AU", scope: str = "ecommerce") -> "FilterBuilder":
+        """Filter products that have descriptions."""
+        return self.attribute_empty("online_long_desc", False, locale, scope)
+    
+    def missing_description(self, locale: str = "en_AU", scope: str = "ecommerce") -> "FilterBuilder":
+        """Filter products missing descriptions."""
+        return self.attribute_empty("online_long_desc", True, locale, scope)
+    
     def build(self) -> Dict[str, Any]:
         """Build the final search criteria dictionary."""
         search_dict = {}
@@ -186,6 +303,7 @@ class SearchBuilder:
         self._search_locale: Optional[str] = None
         self._search_scope: Optional[str] = None
         self._pagination_params: Dict[str, Any] = {}
+        self._value_filters: Dict[str, Any] = {}  # For attributes, locales, scope filtering
     
     def filters(self, builder_func) -> "SearchBuilder":
         """Add filters using a builder function."""
@@ -226,6 +344,22 @@ class SearchBuilder:
         else:
             self._search_criteria[property_name] = [condition]
         
+        return self
+    
+    # Enhanced value filtering methods
+    def attributes(self, attribute_codes: List[str]) -> "SearchBuilder":
+        """Filter to only return specific attributes in the response."""
+        self._value_filters["attributes"] = ",".join(attribute_codes)
+        return self
+    
+    def locales(self, locale_codes: List[str]) -> "SearchBuilder":
+        """Filter to only return values for specific locales."""
+        self._value_filters["locales"] = ",".join(locale_codes)
+        return self
+    
+    def scope(self, scope_code: str) -> "SearchBuilder":
+        """Filter to only return values for a specific scope/channel."""
+        self._value_filters["scope"] = scope_code
         return self
     
     def search_locale(self, locale: str) -> "SearchBuilder":
@@ -278,6 +412,9 @@ class SearchBuilder:
         if self._search_scope:
             params["search_scope"] = self._search_scope
         
+        # Add value filters
+        params.update(self._value_filters)
+        
         # Add pagination parameters
         params.update(self._pagination_params)
         
@@ -293,6 +430,7 @@ class SearchBuilder:
         self._search_locale = None
         self._search_scope = None
         self._pagination_params.clear()
+        self._value_filters.clear()
         return self
     
     # Convenience methods for common search patterns
@@ -361,3 +499,54 @@ def simple_search(property_name: str, operator: str, value: Any = None,
     builder = SearchBuilder()
     builder.raw_filter(property_name, operator, value, locale, scope)
     return builder
+
+
+# Myer-specific magic search functions
+
+def by_supplier_style(style: str) -> SearchBuilder:
+    """Quick search by supplier style."""
+    return SearchBuilder().filters(lambda f: f.supplier_style(style))
+
+
+def by_brand(brand: str) -> SearchBuilder:
+    """Quick search by brand."""
+    return SearchBuilder().filters(lambda f: f.brand(brand))
+
+
+def ready_for_enrichment(status_type: str = "image", status_value: int = 10) -> SearchBuilder:
+    """Find product models ready for enrichment."""
+    return SearchBuilder().filters(
+        lambda f: f.by_attribute(f"{status_type}_status", str(status_value))
+    )
+
+
+def enrichment_complete(status_type: str = "image", status_value: int = 20) -> SearchBuilder:
+    """Find product models with enrichment complete."""
+    return SearchBuilder().filters(
+        lambda f: f.by_attribute(f"{status_type}_status", str(status_value))
+    )
+
+
+def missing_images(image_num: int = 1) -> SearchBuilder:
+    """Find products missing specific image numbers."""
+    return SearchBuilder().filters(lambda f: f.missing_images(image_num))
+
+
+def by_supplier(supplier_code: str) -> SearchBuilder:
+    """Quick search by supplier code."""
+    return SearchBuilder().filters(lambda f: f.supplier(supplier_code))
+
+
+def concession_products(is_concession: bool = True) -> SearchBuilder:
+    """Find concession or non-concession products."""
+    return SearchBuilder().filters(lambda f: f.concession(is_concession))
+
+
+def online_products() -> SearchBuilder:
+    """Find products available online."""
+    return SearchBuilder().filters(lambda f: f.online_ind(True).buyable_ind(True))
+
+
+def clearance_products() -> SearchBuilder:
+    """Find clearance products."""
+    return SearchBuilder().filters(lambda f: f.clearance_ind(True))
