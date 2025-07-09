@@ -145,7 +145,7 @@ class AkeneoResource:
         
     def _prepare_request_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Convert data for an API request."""
-        if hasattr(data, "model_dump"):
+        if hasattr(data, "model_dump") and isinstance(data, BaseModel):
             # It's a Pydantic model
             return data.model_dump(by_alias=True, exclude_none=True)
         return data
@@ -287,6 +287,9 @@ class AkeneoResource:
             
             page_response = self.list(paginated=True, **params)
             
+            if not isinstance(page_response, PaginatedResponse):
+                raise TypeError("Expected PaginatedResponse, got {}".format(type(page_response)))
+            
             if not page_response.items:
                 break
                 
@@ -406,6 +409,9 @@ class AkeneoResource:
             params["limit"] = limit
 
             page_response = await self.list_async(paginated=True, **params)
+            
+            if not isinstance(page_response, PaginatedResponse):
+                raise TypeError("Expected PaginatedResponse, got {}".format(type(page_response)))
 
             if not page_response.items:
                 break

@@ -1,5 +1,3 @@
-# client.py
-
 import httpx
 import asyncio
 import time
@@ -63,8 +61,8 @@ class BaseAkeneoClient:
         self._access_token: Optional[str] = None
         self._token_expires_at: float = 0.0
 
-        self._client: Union[httpx.Client, httpx.AsyncClient]  # To be defined in subclasses
-        
+        self._client: Optional[Union[httpx.Client, httpx.AsyncClient]] = None  # To be defined in subclasses
+
         # Initialize resource classes
         self._initialize_resources()
 
@@ -162,6 +160,10 @@ class AkeneoClient(BaseAkeneoClient):
         files: Optional[Dict[str, Any]] = None,
     ) -> Any:
         """Make a synchronous HTTP request to the Akeneo API."""
+        
+        if not isinstance(self._client, httpx.Client):
+            raise TypeError("HTTP client must be an instance of httpx.Client")
+        
         self._ensure_token_valid_sync()
         
         headers = {
@@ -214,7 +216,7 @@ class AkeneoClient(BaseAkeneoClient):
                 return {}  # Should not be reached due to raise in _handle_error_response
 
             except AkeneoAPIError as e:
-                if hasattr(e, 'retry_after') and getattr(e, 'retry_after') and retries > 0:
+                if hasattr(e, 'retry_after') and getattr(e, 'retry_after') and isinstance(e.retry_after, (int, float)) and retries > 0:
                     logger.warning(f"Caught {type(e).__name__}, retrying after {e.retry_after}s. Retries left: {retries-1}")
                     time.sleep(e.retry_after)
                     retries -= 1
@@ -237,7 +239,7 @@ class AkeneoClient(BaseAkeneoClient):
 
     def close(self):
         """Close the HTTP client."""
-        if self._client:
+        if self._client and isinstance(self._client, httpx.Client):
             self._client.close()
 
 
@@ -296,6 +298,10 @@ class AkeneoAsyncClient(BaseAkeneoClient):
         files: Optional[Dict[str, Any]] = None,
     ) -> Any:
         """Make an asynchronous HTTP request to the Akeneo API."""
+        
+        if not isinstance(self._client, httpx.AsyncClient):
+            raise TypeError("HTTP client must be an instance of httpx.AsyncClient")
+        
         await self._ensure_token_valid_async()
         
         params = utils.clean_params(params) if params else {}
@@ -348,7 +354,7 @@ class AkeneoAsyncClient(BaseAkeneoClient):
                 return {}  # Should not be reached
 
             except AkeneoAPIError as e:
-                if hasattr(e, 'retry_after') and getattr(e, 'retry_after') and retries > 0:
+                if hasattr(e, 'retry_after') and getattr(e, 'retry_after') and isinstance(e.retry_after, (int, float)) and retries > 0:
                     logger.warning(f"Caught {type(e).__name__}, retrying after {e.retry_after}s. Retries left: {retries-1}")
                     await asyncio.sleep(e.retry_after)
                     retries -= 1
@@ -371,5 +377,5 @@ class AkeneoAsyncClient(BaseAkeneoClient):
                 
     async def close(self):
         """Close the HTTP client asynchronously."""
-        if self._client:
+        if self._client and isinstance(self._client, httpx.AsyncClient):
             await self._client.aclose()

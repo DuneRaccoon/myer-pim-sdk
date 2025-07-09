@@ -1,5 +1,3 @@
-# exceptions.py
-
 import json
 from typing import Optional, Dict, Any
 import httpx
@@ -19,7 +17,7 @@ class AkeneoAPIError(Exception):
         self.message = message
         self.response = response
         self.status_code = status_code or (response.status_code if response else None)
-        self.retry_after = retry_after
+        self.retry_after = float(retry_after) if retry_after is not None else None
         
         # Try to extract additional error info from response
         self.error_code = None
