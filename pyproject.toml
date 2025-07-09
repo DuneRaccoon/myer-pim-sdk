@@ -19,6 +19,13 @@ dependencies = [
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
+
 [tool.poetry.group.dev.dependencies]
 setuptools = "^80.9.0"
 
+[tool.poetry]
+repository = "https://github.com/DuneRaccoon/myer-pim-sdk.git"
+packages = [{ include = "myer_pim_sdk" }]
+
+[tool.poetry.urls]
+Source = "https://github.com/DuneRaccoon/myer-pim-sdk"

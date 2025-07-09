@@ -1,5 +1,8 @@
 # Myer PIM SDK
 
+[![PyPI version](https://badge.fury.io/py/myer-pim-sdk.svg)](https://badge.fury.io/py/myer-pim-sdk)
+[![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey.svg)](https://opensource.org/licenses/MIT)
+
 A comprehensive Python SDK for integrating with Akeneo REST API, specifically designed for Myer's Product Information Management (PIM) system.
 
 ## Features
@@ -497,7 +500,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 For issues and questions:
 
-- GitHub Issues: https://github.com/myer/myer-pim-sdk/issues
+- GitHub Issues: https://github.com/DuneRaccoon/myer-pim-sdk/issues
 - Documentation: https://api.akeneo.com/api-reference.html
 
 ## Changelog
